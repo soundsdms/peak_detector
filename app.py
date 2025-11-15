@@ -19,7 +19,24 @@ from flask import (
     url_for,
 )
 from moviepy import AudioFileClip, CompositeAudioClip, VideoFileClip
-from moviepy.audio.fx.all import speedx, volumex
+
+# MoviePy reorganised its effect modules in version 2.x.
+# Import the helpers in a version-agnostic way so both 1.x and 2.x remain compatible.
+try:  # MoviePy 2.x location
+    from moviepy.audio.fx.speedx import speedx  # type: ignore
+except ImportError:  # pragma: no cover - fallback for MoviePy 1.x
+    try:
+        from moviepy.audio.fx import speedx  # type: ignore
+    except ImportError:  # pragma: no cover - final fallback
+        from moviepy.audio.fx.all import speedx  # type: ignore
+
+try:  # MoviePy 2.x location
+    from moviepy.audio.fx.volumex import volumex  # type: ignore
+except ImportError:  # pragma: no cover - fallback for MoviePy 1.x
+    try:
+        from moviepy.audio.fx import volumex  # type: ignore
+    except ImportError:  # pragma: no cover - final fallback
+        from moviepy.audio.fx.all import volumex  # type: ignore
 from scipy.signal import find_peaks
 
 APP_ROOT = os.path.dirname(os.path.abspath(__file__))
