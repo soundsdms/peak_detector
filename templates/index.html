@@ -1,86 +1,137 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Peak Detection Tool</title>
+    <meta charset="utf-8">
+    <title>Peak Detector - Upload</title>
     <style>
         body {
-            font-family: Arial;
-            background: #f4f4f4;
-            padding: 30px;
+            font-family: "Inter", Arial, sans-serif;
+            background: linear-gradient(135deg, #1f2937, #111827);
+            color: #fff;
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
-        .container {
-            max-width: 600px;
-            margin: auto;
-            padding: 20px;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 0 12px rgba(0,0,0,0.1);
+        .card {
+            background: rgba(17, 24, 39, 0.85);
+            border-radius: 18px;
+            padding: 48px;
+            box-shadow: 0 28px 60px rgba(0, 0, 0, 0.35);
+            max-width: 520px;
+            width: 90%;
+            text-align: center;
         }
-        .slider {
-            width: 100%;
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 12px;
         }
-        #progressBar {
-            width: 100%;
-            background: #ddd;
-            height: 20px;
-            border-radius: 10px;
-            overflow: hidden;
-            margin-top: 20px;
+        p {
+            line-height: 1.6;
+            color: rgba(255, 255, 255, 0.75);
+        }
+        form {
+            margin-top: 32px;
+        }
+        .drop-zone {
+            border: 2px dashed rgba(255, 255, 255, 0.3);
+            border-radius: 14px;
+            padding: 40px 20px;
+            cursor: pointer;
+            transition: border-color 0.2s ease;
+        }
+        .drop-zone:hover,
+        .drop-zone.dragover {
+            border-color: #38bdf8;
+        }
+        input[type="file"] {
             display: none;
         }
-        #progressFill {
-            height: 100%;
-            width: 0%;
-            background: #4caf50;
+        .btn {
+            margin-top: 28px;
+            padding: 14px 28px;
+            border: none;
+            border-radius: 999px;
+            background: #38bdf8;
+            color: #0f172a;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            font-size: 1rem;
+        }
+        .btn:disabled {
+            background: rgba(56, 189, 248, 0.4);
+            color: rgba(15, 23, 42, 0.6);
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        .btn:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 12px 25px rgba(56, 189, 248, 0.35);
+        }
+        .file-name {
+            margin-top: 12px;
+            font-size: 0.95rem;
+            color: rgba(255, 255, 255, 0.85);
         }
     </style>
 </head>
 <body>
-<div class="container">
-    <h2>Upload a Video</h2>
+    <div class="card">
+        <h1>Upload a Video</h1>
+        <p>Select a video file to start placing synchronized sound effects at every peak.</p>
+        <form id="uploadForm" method="POST" action="/upload" enctype="multipart/form-data">
+            <label class="drop-zone" for="videoInput" id="dropZone">
+                <strong>Click to browse</strong> or drop a file here
+                <input type="file" id="videoInput" name="video" accept="video/*" required>
+            </label>
+            <div class="file-name" id="fileName">No file selected</div>
+            <button class="btn" type="submit" id="submitBtn" disabled>Continue to editor</button>
+        </form>
+    </div>
+    <script>
+        const videoInput = document.getElementById('videoInput');
+        const fileName = document.getElementById('fileName');
+        const submitBtn = document.getElementById('submitBtn');
+        const dropZone = document.getElementById('dropZone');
 
-    <label>Sensitivity (Peak Prominence)</label>
-    <input type="range" min="0.05" max="0.5" step="0.01" value="0.15" id="sensitivity" class="slider">
-
-    <label>Minimum Spacing (Seconds)</label>
-    <input type="range" min="0.1" max="2" step="0.1" value="0.5" id="spacing" class="slider">
-
-    <br><br>
-    <input type="file" id="videoFile">
-    <button onclick="startProcess()">Process</button>
-
-    <div id="progressBar"><div id="progressFill"></div></div>
-</div>
-
-<script>
-function startProcess() {
-    let file = document.getElementById("videoFile").files[0];
-    if (!file) { alert("Please upload a video."); return; }
-
-    let data = new FormData();
-    data.append("video", file);
-    data.append("sensitivity", document.getElementById("sensitivity").value);
-    data.append("spacing", document.getElementById("spacing").value);
-
-    document.getElementById("progressBar").style.display = "block";
-
-    fetch("/process", { method: "POST", body: data })
-        .then(() => pollProgress());
-}
-
-function pollProgress() {
-    fetch("/progress")
-        .then(r => r.json())
-        .then(data => {
-            document.getElementById("progressFill").style.width = data.percent + "%";
-
-            if (data.status === "processing") {
-                setTimeout(pollProgress, 500);
-            } else {
-                window.location = "/result?file=" + data.status;
+        function updateFileDisplay(files) {
+            if (!files || !files.length) {
+                fileName.textContent = 'No file selected';
+                submitBtn.disabled = true;
+                return;
             }
+            const file = files[0];
+            fileName.textContent = `${file.name} (${(file.size / (1024 * 1024)).toFixed(1)} MB)`;
+            submitBtn.disabled = false;
+        }
+
+        videoInput.addEventListener('change', (event) => {
+            updateFileDisplay(event.target.files);
         });
-}
-</script>
+
+        ;['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                dropZone.classList.add('dragover');
+            });
+        });
+
+        ;['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                dropZone.classList.remove('dragover');
+            });
+        });
+
+        dropZone.addEventListener('drop', (event) => {
+            const files = event.dataTransfer.files;
+            videoInput.files = files;
+            updateFileDisplay(files);
+        });
+    </script>
 </body>
 </html>

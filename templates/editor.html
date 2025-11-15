@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Peak Detector - Editor</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --accent: #38bdf8;
+            --bg: #0f172a;
+            --panel: #111827;
+        }
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            margin: 0;
+            font-family: "Inter", Arial, sans-serif;
+            background: linear-gradient(135deg, #0f172a, #020617);
+            color: #e2e8f0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        header {
+            padding: 20px 36px;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .brand {
+            font-size: 1.1rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            color: var(--accent);
+        }
+        main {
+            flex: 1;
+            display: grid;
+            gap: 32px;
+            padding: 32px 36px 120px;
+            grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
+        }
+        .video-panel {
+            background: rgba(15, 23, 42, 0.65);
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: 0 24px 60px rgba(15, 23, 42, 0.45);
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+        video {
+            width: 100%;
+            border-radius: 16px;
+            background: #0b1120;
+        }
+        .waveform-wrapper {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(148, 163, 184, 0.12);
+            border-radius: 16px;
+            padding: 16px;
+        }
+        canvas {
+            width: 100%;
+            height: 140px;
+        }
+        .controls {
+            background: rgba(15, 23, 42, 0.75);
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: 0 24px 60px rgba(2, 6, 23, 0.55);
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .control-group label {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: rgba(226, 232, 240, 0.9);
+        }
+        input[type="range"] {
+            width: 100%;
+        }
+        .toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .toggle span {
+            font-weight: 600;
+        }
+        .export-panel {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            padding: 22px 36px;
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0), rgba(2, 6, 23, 0.95));
+            backdrop-filter: blur(14px);
+        }
+        .export-card {
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            border-radius: 16px;
+            padding: 20px 24px;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            justify-content: space-between;
+        }
+        .export-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        button.primary {
+            background: var(--accent);
+            color: #0f172a;
+            border: none;
+            border-radius: 999px;
+            padding: 12px 26px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        button.primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        button.primary:not(:disabled):hover {
+            transform: translateY(-1px);
+            box-shadow: 0 16px 32px rgba(56, 189, 248, 0.35);
+        }
+        .progress {
+            flex: 1;
+            height: 10px;
+            background: rgba(148, 163, 184, 0.2);
+            border-radius: 999px;
+            overflow: hidden;
+            position: relative;
+        }
+        .progress > span {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            background: var(--accent);
+            width: 0%;
+            transition: width 0.25s ease;
+        }
+        .status {
+            font-size: 0.9rem;
+            color: rgba(226, 232, 240, 0.75);
+        }
+        .links {
+            display: flex;
+            gap: 12px;
+        }
+        a.action-link {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 600;
+        }
+        select {
+            padding: 8px 10px;
+            border-radius: 10px;
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            background: rgba(15, 23, 42, 0.6);
+            color: #e2e8f0;
+        }
+        @media (max-width: 1080px) {
+            main {
+                grid-template-columns: 1fr;
+            }
+            .export-card {
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+    </style>
+</head>
+<body data-video-id="{{ video_id }}" data-video-url="{{ video_url }}" data-sfx-url="{{ sfx_url }}">
+    <header>
+        <div class="brand">Peak Detector Studio</div>
+        <div class="status" id="analysisStatus">Ready</div>
+    </header>
+    <main>
+        <section class="video-panel">
+            <video id="video" controls crossorigin="anonymous">
+                <source src="{{ video_url }}" type="video/mp4">
+            </video>
+            <div class="waveform-wrapper">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                    <strong>Sound Effect Placement</strong>
+                    <span id="waveformDuration" style="font-size:0.85rem;color:rgba(226,232,240,0.65);"></span>
+                </div>
+                <canvas id="waveform" width="1024" height="140"></canvas>
+            </div>
+        </section>
+        <aside class="controls">
+            <div class="control-group">
+                <label for="sensitivity">Peak Sensitivity</label>
+                <input type="range" id="sensitivity" min="0.05" max="0.5" step="0.01" value="0.2">
+                <span class="status" id="sensitivityValue">0.20</span>
+            </div>
+            <div class="control-group">
+                <label for="spacing">Minimum Spacing (seconds)</label>
+                <input type="range" id="spacing" min="0.1" max="2" step="0.05" value="0.5">
+                <span class="status" id="spacingValue">0.50s</span>
+            </div>
+            <div class="control-group">
+                <label for="volume">Sound Effect Volume</label>
+                <input type="range" id="volume" min="0" max="2" step="0.05" value="1">
+                <span class="status" id="volumeValue">100%</span>
+            </div>
+            <div class="control-group">
+                <div class="toggle">
+                    <span>Pitch Variation</span>
+                    <label>
+                        <input type="checkbox" id="pitchToggle"> Enable
+                    </label>
+                </div>
+                <input type="range" id="pitchAmount" min="0" max="1" step="0.05" value="0.25" disabled>
+                <span class="status" id="pitchValue">Variation: 0%</span>
+            </div>
+            <div class="control-group">
+                <label for="reverbPreset">Reverberation Preset</label>
+                <select id="reverbPreset">
+                    <option>None</option>
+                    <option>Small Room</option>
+                    <option>Concert Hall</option>
+                    <option>Deep Cave</option>
+                </select>
+                <span class="status">Preset selection placeholder (reverb coming soon)</span>
+            </div>
+        </aside>
+    </main>
+    <div class="export-panel">
+        <div class="export-card">
+            <div class="status" id="exportStatus">Ready to export</div>
+            <div class="progress" id="exportProgress" hidden>
+                <span id="exportProgressFill"></span>
+            </div>
+            <div class="export-actions" id="exportActions">
+                <button class="primary" id="exportBtn">Download processed video</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        const pageState = {
+            videoId: document.body.dataset.videoId,
+            videoUrl: document.body.dataset.videoUrl,
+            sfxUrl: document.body.dataset.sfxUrl,
+            peaks: [],
+            videoDuration: 0,
+            audioCtx: null,
+            sfxBuffer: null,
+            scheduled: [],
+            nextPeakIndex: 0,
+            raf: null,
+            jobId: null,
+            waveformShape: null,
+        };
+
+        const videoEl = document.getElementById('video');
+        const sensitivityEl = document.getElementById('sensitivity');
+        const spacingEl = document.getElementById('spacing');
+        const volumeEl = document.getElementById('volume');
+        const pitchToggleEl = document.getElementById('pitchToggle');
+        const pitchAmountEl = document.getElementById('pitchAmount');
+        let exportBtn = document.getElementById('exportBtn');
+        const exportStatusEl = document.getElementById('exportStatus');
+        const exportProgressEl = document.getElementById('exportProgress');
+        const exportProgressFillEl = document.getElementById('exportProgressFill');
+        const exportActionsEl = document.getElementById('exportActions');
+        const waveformCanvas = document.getElementById('waveform');
+        const waveformCtx = waveformCanvas.getContext('2d');
+        const waveformDurationEl = document.getElementById('waveformDuration');
+        const analysisStatusEl = document.getElementById('analysisStatus');
+        const volumeValueEl = document.getElementById('volumeValue');
+        const sensitivityValueEl = document.getElementById('sensitivityValue');
+        const spacingValueEl = document.getElementById('spacingValue');
+        const pitchValueEl = document.getElementById('pitchValue');
+
+        const gainNodeRef = { node: null };
+
+        function formatSeconds(value) {
+            return `${value.toFixed(2)}s`;
+        }
+
+        function ensureAudioContext() {
+            if (!pageState.audioCtx) {
+                pageState.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                gainNodeRef.node = pageState.audioCtx.createGain();
+                gainNodeRef.node.gain.value = parseFloat(volumeEl.value);
+                gainNodeRef.node.connect(pageState.audioCtx.destination);
+            }
+            return pageState.audioCtx;
+        }
+
+        async function loadSfxBuffer() {
+            const ctx = ensureAudioContext();
+            const response = await fetch(pageState.sfxUrl);
+            const arrayBuffer = await response.arrayBuffer();
+            pageState.sfxBuffer = await ctx.decodeAudioData(arrayBuffer);
+            buildWaveformShape();
+            renderWaveform();
+        }
+
+        function buildWaveformShape(samples = 256) {
+            if (!pageState.sfxBuffer) return;
+            const channel = pageState.sfxBuffer.numberOfChannels > 1
+                ? pageState.sfxBuffer.getChannelData(0)
+                : pageState.sfxBuffer.getChannelData(0);
+            const blockSize = Math.max(1, Math.floor(channel.length / samples));
+            const shape = [];
+            for (let i = 0; i < samples; i++) {
+                const start = i * blockSize;
+                const end = Math.min(channel.length, start + blockSize);
+                let min = 1;
+                let max = -1;
+                for (let j = start; j < end; j++) {
+                    const v = channel[j];
+                    if (v < min) min = v;
+                    if (v > max) max = v;
+                }
+                shape.push({ min, max });
+            }
+            pageState.waveformShape = shape;
+        }
+
+        function renderWaveform() {
+            waveformCtx.clearRect(0, 0, waveformCanvas.width, waveformCanvas.height);
+            const { peaks, videoDuration, sfxBuffer, waveformShape } = pageState;
+            if (!videoDuration || !sfxBuffer || !waveformShape) return;
+
+            const width = waveformCanvas.width;
+            const height = waveformCanvas.height;
+            const pxPerSecond = width / videoDuration;
+            const baseY = height / 2;
+
+            waveformCtx.strokeStyle = 'rgba(148, 163, 184, 0.3)';
+            waveformCtx.beginPath();
+            waveformCtx.moveTo(0, baseY);
+            waveformCtx.lineTo(width, baseY);
+            waveformCtx.stroke();
+
+            const sfxDuration = sfxBuffer.duration;
+            const shape = waveformShape;
+
+            waveformCtx.fillStyle = 'rgba(56, 189, 248, 0.45)';
+            for (const peak of peaks) {
+                const startX = peak * pxPerSecond;
+                const sfxWidth = sfxDuration * pxPerSecond;
+                for (let i = 0; i < shape.length; i++) {
+                    const x = startX + (i / shape.length) * sfxWidth;
+                    if (x > width) break;
+                    const { min, max } = shape[i];
+                    const y1 = baseY - max * (height / 2);
+                    const y2 = baseY - min * (height / 2);
+                    waveformCtx.fillRect(x, Math.min(y1, y2), Math.max(1, sfxWidth / shape.length), Math.abs(y2 - y1));
+                }
+            }
+        }
+
+        function resetPlaybackState() {
+            stopAllScheduled();
+            const currentTime = videoEl.currentTime;
+            pageState.nextPeakIndex = pageState.peaks.findIndex((peak) => peak >= currentTime - 0.05);
+            if (pageState.nextPeakIndex === -1) {
+                pageState.nextPeakIndex = pageState.peaks.length;
+            }
+        }
+
+        function stopAllScheduled() {
+            pageState.scheduled.forEach(source => {
+                try { source.stop(); } catch (err) { /* ignore */ }
+            });
+            pageState.scheduled = [];
+            if (pageState.raf) {
+                cancelAnimationFrame(pageState.raf);
+                pageState.raf = null;
+            }
+        }
+
+        function scheduleLoop() {
+            if (videoEl.paused || pageState.peaks.length === 0) {
+                pageState.raf = null;
+                return;
+            }
+            const ctx = ensureAudioContext();
+            const now = videoEl.currentTime;
+            while (pageState.nextPeakIndex < pageState.peaks.length && pageState.peaks[pageState.nextPeakIndex] - now <= 0.08) {
+                const peakTime = pageState.peaks[pageState.nextPeakIndex];
+                const delay = Math.max(0, peakTime - now);
+                const startAt = ctx.currentTime + delay;
+                playSfxAt(startAt);
+                pageState.nextPeakIndex += 1;
+            }
+            pageState.raf = requestAnimationFrame(scheduleLoop);
+        }
+
+        function playSfxAt(startTime) {
+            if (!pageState.sfxBuffer) return;
+            const ctx = ensureAudioContext();
+            const source = ctx.createBufferSource();
+            source.buffer = pageState.sfxBuffer;
+            let playbackRate = 1;
+            if (pitchToggleEl.checked) {
+                const amount = parseFloat(pitchAmountEl.value || '0');
+                const min = Math.max(0.4, 1 - amount);
+                const max = 1 + amount;
+                playbackRate = min + Math.random() * (max - min);
+            }
+            source.playbackRate.value = playbackRate;
+            source.connect(gainNodeRef.node);
+            source.start(startTime);
+            source.onended = () => {
+                pageState.scheduled = pageState.scheduled.filter((node) => node !== source);
+            };
+            pageState.scheduled.push(source);
+        }
+
+        async function fetchPeaks() {
+            analysisStatusEl.textContent = 'Analyzing audio…';
+            try {
+                const body = JSON.stringify({
+                    prominence: parseFloat(sensitivityEl.value),
+                    spacing: parseFloat(spacingEl.value),
+                });
+                const response = await fetch(`/api/peaks/${pageState.videoId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body,
+                });
+                if (!response.ok) {
+                    throw new Error('Failed to analyze audio');
+                }
+                const data = await response.json();
+                pageState.peaks = data.peaks || [];
+                pageState.videoDuration = data.duration || videoEl.duration || 0;
+                waveformDurationEl.textContent = `Duration: ${pageState.videoDuration.toFixed(2)}s`;
+                analysisStatusEl.textContent = `Found ${pageState.peaks.length} peaks`;
+                resetPlaybackState();
+                renderWaveform();
+            } catch (error) {
+                analysisStatusEl.textContent = error.message;
+            }
+        }
+
+        function updateDisplayedValues() {
+            sensitivityValueEl.textContent = parseFloat(sensitivityEl.value).toFixed(2);
+            spacingValueEl.textContent = formatSeconds(parseFloat(spacingEl.value));
+            volumeValueEl.textContent = `${Math.round(parseFloat(volumeEl.value) * 100)}%`;
+            const variation = pitchToggleEl.checked ? Math.round(parseFloat(pitchAmountEl.value) * 100) : 0;
+            pitchValueEl.textContent = `Variation: ${variation}%`;
+        }
+
+        async function init() {
+            updateDisplayedValues();
+            ensureAudioContext();
+            await loadSfxBuffer();
+            await fetchPeaks();
+        }
+
+        function updateVolume() {
+            if (gainNodeRef.node) {
+                gainNodeRef.node.gain.value = parseFloat(volumeEl.value);
+            }
+            updateDisplayedValues();
+        }
+
+        videoEl.addEventListener('play', async () => {
+            await ensureAudioContext().resume();
+            resetPlaybackState();
+            if (!pageState.raf) {
+                scheduleLoop();
+            }
+        });
+
+        videoEl.addEventListener('pause', () => {
+            stopAllScheduled();
+        });
+
+        videoEl.addEventListener('ended', () => {
+            stopAllScheduled();
+        });
+
+        videoEl.addEventListener('seeked', () => {
+            resetPlaybackState();
+        });
+
+        sensitivityEl.addEventListener('input', () => {
+            updateDisplayedValues();
+        });
+        spacingEl.addEventListener('input', () => {
+            updateDisplayedValues();
+        });
+        volumeEl.addEventListener('input', updateVolume);
+        pitchToggleEl.addEventListener('change', () => {
+            pitchAmountEl.disabled = !pitchToggleEl.checked;
+            updateDisplayedValues();
+        });
+        pitchAmountEl.addEventListener('input', () => {
+            updateDisplayedValues();
+        });
+
+        ;['change'].forEach(evt => {
+            sensitivityEl.addEventListener(evt, () => { fetchPeaks(); });
+            spacingEl.addEventListener(evt, () => { fetchPeaks(); });
+        });
+
+        async function startExport() {
+            if (exportBtn) {
+                exportBtn.disabled = true;
+            }
+            exportStatusEl.textContent = 'Exporting…';
+            exportProgressEl.hidden = false;
+            exportProgressFillEl.style.width = '0%';
+            exportActionsEl.innerHTML = '';
+
+            const payload = {
+                prominence: parseFloat(sensitivityEl.value),
+                spacing: parseFloat(spacingEl.value),
+                volume: parseFloat(volumeEl.value),
+                pitch_enabled: pitchToggleEl.checked,
+                pitch_amount: parseFloat(pitchAmountEl.value),
+                reverb: document.getElementById('reverbPreset').value,
+            };
+
+            try {
+                const response = await fetch(`/api/export/${pageState.videoId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+                if (!response.ok) {
+                    throw new Error('Failed to start export');
+                }
+                const data = await response.json();
+                if (!data.job_id) {
+                    throw new Error(data.error || 'Failed to start export');
+                }
+                pageState.jobId = data.job_id;
+                pollExport();
+            } catch (error) {
+                exportStatusEl.textContent = error.message;
+                exportProgressEl.hidden = true;
+                exportActionsEl.innerHTML = '<button class="primary" id="exportBtn">Download processed video</button>';
+                bindExportButton();
+            }
+        }
+
+        async function pollExport() {
+            if (!pageState.jobId) return;
+            const response = await fetch(`/api/export/status/${pageState.jobId}`);
+            const data = await response.json();
+            if (data.error) {
+                exportStatusEl.textContent = data.error;
+                exportProgressFillEl.style.width = '0%';
+                exportProgressEl.hidden = true;
+                exportActionsEl.innerHTML = '<button class="primary" id="exportBtn">Download processed video</button>';
+                bindExportButton();
+                return;
+            }
+            exportProgressFillEl.style.width = `${data.percent || 0}%`;
+            if (data.status === 'done') {
+                exportStatusEl.textContent = 'Export complete';
+                exportProgressFillEl.style.width = '100%';
+                exportActionsEl.innerHTML = `
+                    <div class="links">
+                        <a class="action-link" href="${data.download_url}" download>Download file</a>
+                        <a class="action-link" href="/">Process another</a>
+                    </div>`;
+                if (exportBtn) {
+                    exportBtn.remove();
+                    exportBtn = null;
+                }
+                return;
+            }
+            if (data.status === 'error') {
+                exportStatusEl.textContent = data.error || 'Export failed';
+                exportProgressEl.hidden = true;
+                exportActionsEl.innerHTML = '<button class="primary" id="exportBtn">Retry export</button>';
+                bindExportButton();
+                return;
+            }
+            exportStatusEl.textContent = 'Exporting…';
+            setTimeout(pollExport, 800);
+        }
+
+        function bindExportButton() {
+            const btn = document.getElementById('exportBtn');
+            if (btn) {
+                exportBtn = btn;
+                btn.addEventListener('click', startExport);
+            }
+        }
+
+        bindExportButton();
+        init();
+    </script>
+</body>
+</html>
