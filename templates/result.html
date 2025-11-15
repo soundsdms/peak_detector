@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Processing Complete</title>
+</head>
+<body style="font-family: Arial; padding: 30px;">
+    <h2>Your Processed Video</h2>
+
+    <video width="600" controls>
+        <source id="vid" type="video/mp4">
+    </video>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const file = urlParams.get("file");
+        document.getElementById("vid").src = "/video/" + file;
+    </script>
+</body>
+</html>
